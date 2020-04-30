@@ -1,6 +1,23 @@
 import 'react-native-gesture-handler';
 import * as React from 'react';
 import { View, Text, Button } from 'react-native';
+
+import { createStore, combineReducers, applyMiddleware } from 'redux';
+import { Provider } from 'react-redux';
+
+import userReducer from './store/user_reducers';
+import virusReducer from './store/virus_reducers';
+import thunkMiddleware from 'redux-thunk';
+
+const rootReducer = combineReducers({
+  virus : virusReducer,
+  users : userReducer,
+  
+});
+
+const store = createStore(rootReducer, applyMiddleware(thunkMiddleware));
+
+
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createDrawerNavigator } from '@react-navigation/drawer';
@@ -73,7 +90,7 @@ const MyTabs = props => {
   );
 }
 
-const App = () => {
+const Main = () => {
 
   return (
     <NavigationContainer>
@@ -85,5 +102,7 @@ const App = () => {
   );
 }
 
-export default App
+export default function App () {
+  return <Provider store={store} ><Main /></Provider>
+}
 
