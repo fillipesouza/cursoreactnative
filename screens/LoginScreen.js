@@ -1,10 +1,12 @@
-import React from 'react'
+import React from 'react';
+import { useSelector } from 'react-redux';
 import { StyleSheet, Text, View } from 'react-native'
 
 const LoginScreen = () => {
+    const myHealthInfo = useSelector(state => state.users.healthInfo);
     return (
         <View style={styles.LoginScreen}>
-            <Text>Login Screen</Text>
+            <Text>{myHealthInfo[0].temperature}</Text>
         </View>
     )
 }
