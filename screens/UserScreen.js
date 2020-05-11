@@ -1,6 +1,6 @@
-import React, { useEffect, useReducer } from 'react';
+import React, { useEffect, useCallback, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { StyleSheet, Text, View, Button, FlatList, TextInput, ScrollView } from 'react-native'
+import { StyleSheet, Text, View, Button, FlatList, TextInput, ScrollView, ActivityIndicator } from 'react-native'
 import HealthInfo, { CoughType, RespirationLevel } from '../models/HealthInfo';
 import { TextField } from "react-native-material-textfield";
 import { Dropdown } from 'react-native-material-dropdown';
@@ -22,17 +22,7 @@ import {
 
 import { withNextInputAutoFocusForm } from "react-native-formik";
 
-const Form = withNextInputAutoFocusForm(View);
-
-const MyInput = compose(
-    handleTextInput,
-    withNextInputAutoFocusInput
-)(TextField);
-
-const MyDropDown = compose(
-    handleTextInput,
-    withNextInputAutoFocusInput
-)(Dropdown);
+import { MyForm, MyInput, MyDropDown } from '../components/FormComponents';
 
 const validationSchema = Yup.object().shape({
     temperature: Yup.number()
@@ -49,7 +39,8 @@ const validationSchema = Yup.object().shape({
 
 const UserScreen = () => {
     const myHealthInfo = useSelector(state => state.users.healthInfo);
-
+    const userId = useSelector(state => state.users.userId);
+    const [isLoading, setisLoading] = useState(false);
 
     const dispatch = useDispatch();
 
@@ -57,9 +48,19 @@ const UserScreen = () => {
 
         const { temperature, coughType, bodyAche, respirationLevel } = values;
 
-        const healthInfo = new HealthInfo(new Date().toISOString(), new Date(), temperature, coughType, bodyAche, respirationLevel);
-        dispatch(userActions.addInfo(healthInfo));
+        const healthInfo = new HealthInfo( new Date(), temperature, coughType, bodyAche, respirationLevel);
+        dispatch(userActions.addInfo(healthInfo, userId));
     }
+
+    const retrieveHealthInfo = useCallback ( async ()  => {
+        setisLoading(true);
+        await dispatch(userActions.fetchHealthInfo(userId));
+        setisLoading(false);
+    }, [dispatch, userId]);
+
+    useEffect(() => {
+        retrieveHealthInfo();
+    }, [retrieveHealthInfo])
 
     const coughTypes = [{
         value: CoughType.HARD,
@@ -84,6 +85,10 @@ const UserScreen = () => {
         value: RespirationLevel.CRITICAL
     }];
 
+    if (isLoading) {
+        return <View style={styles.container}><ActivityIndicator size="large" color="#0000ff" /></View>
+    }
+
     return (
         <ScrollView>
             <View style={styles.UserScreen}>
@@ -100,7 +105,7 @@ const UserScreen = () => {
                     validationSchema={validationSchema}
                 >{props => {
                     return (
-                        <Form>
+                        <MyForm>
                             <MyInput label="Temperature" name="temperature" type="number" keyboardType='phone-pad' />
                             <MyDropDown style={{ width: 200 }}
                                 name="coughType"
@@ -125,7 +130,7 @@ const UserScreen = () => {
                                 }
                             />
                             <Button onPress={props.handleSubmit} title="Add Information" />
-                        </Form>
+                        </MyForm>
                     );
                 }}
                 </Formik>
