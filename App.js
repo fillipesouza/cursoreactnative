@@ -1,6 +1,6 @@
 import 'react-native-gesture-handler';
-import * as React from 'react';
-import { View, Text, Button } from 'react-native';
+
+import React, {useState, useEffect} from 'react';
 
 import { createStore, combineReducers, applyMiddleware } from 'redux';
 import { Provider } from 'react-redux';
@@ -17,92 +17,80 @@ const rootReducer = combineReducers({
 
 const store = createStore(rootReducer, applyMiddleware(thunkMiddleware));
 
-
-import { NavigationContainer } from '@react-navigation/native';
-import { createStackNavigator } from '@react-navigation/stack';
-import { createDrawerNavigator } from '@react-navigation/drawer';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import VirusList from './screens/VirusList';
-import VirusDetails from './screens/VirusDetails';
-import UserScreen from './screens/UserScreen';
-import { Ionicons } from '@expo/vector-icons';
-import LoginScreen from './screens/LoginScreen';
-import { TouchableOpacity } from 'react-native-gesture-handler';
-
-const VirusStack = createStackNavigator();
-const UserStack = createStackNavigator();
-
-const Tab = createBottomTabNavigator();
-
-const Drawer = createDrawerNavigator();
+import { Text, View, Button, Vibration, Platform } from 'react-native';
+import { Notifications } from 'expo';
+import * as Permissions from 'expo-permissions';
+import Constants from 'expo-constants';
 
 
-const defaultNavigatorOption = (navigation) => {
-  return {
-    headerTintColor: 'white',
-    headerStyle: { backgroundColor: 'brown', },
-    headerRight: () => {
-      return <Ionicons name='ios-add' size={25} color='white' />;
-    }
-  }
-
-}
+import Main from './navigator/navigation';
 
 
-const MyVirusStack = props => {
-  return (
-    <VirusStack.Navigator screenOptions={defaultNavigatorOption}>
-      <VirusStack.Screen name="List" component={VirusList} />
-      <VirusStack.Screen name="Details" component={VirusDetails} />
-    </VirusStack.Navigator>
-  );
-}
-
-const MyUserStack = props => {
-  return (
-    <UserStack.Navigator screenOptions={defaultNavigatorOption}>
-      <UserStack.Screen name="User" component={UserScreen} />
-    </UserStack.Navigator>
-  );
-}
-
-const MyTabs = props => {
-  return (
-    <Tab.Navigator
-      screenOptions={({ route }) => ({
-        tabBarIcon: ({ focused, color, size }) => {
-          let iconName;
-
-          if (route.name === 'Users') {
-            iconName = 'ios-contact';
-          } else if (route.name === 'Virus') {
-            iconName = 'ios-cog';
-          }
-
-          // You can return any component that you like here!
-          return <Ionicons name={iconName} size={size} color={color} />;
-        }
-      })}
-    >
-      <Tab.Screen name="Users" component={MyUserStack} />
-      <Tab.Screen name="Virus" component={MyVirusStack} />
-    </Tab.Navigator>
-  );
-}
-
-const Main = () => {
-
-  return (
-    <NavigationContainer>
-      <Drawer.Navigator initialRouteName="Home">
-        <Drawer.Screen name="Home" component={MyTabs} />
-        <Drawer.Screen name="Login" component={LoginScreen} />
-      </Drawer.Navigator>
-    </NavigationContainer>
-  );
-}
 
 export default function App () {
+
+  const [expoPushToken, setToken] = useState('');
+  const [notification, setNotification] = useState({});
+  let notificationSubscription;
+  let channelId;
+
+  const registerForPushNotificationsAsync = async () => {
+    //if (Constants.isDevice) {
+      const { status: existingStatus } = await Permissions.getAsync(Permissions.NOTIFICATIONS);
+      let finalStatus = existingStatus;
+      if (existingStatus !== 'granted') {
+        const { status } = await Permissions.askAsync(Permissions.NOTIFICATIONS);
+        finalStatus = status;
+      }
+      if (finalStatus !== 'granted') {
+        alert('Failed to get push token for push notification!');
+        return;
+      }
+      token = await Notifications.getExpoPushTokenAsync();
+      console.log(token);
+      setToken(token);
+
+      
+
+      await registerApp();
+      Notifications.addListener(_handleNotification);
+    
+
+    if (Platform.OS === 'android') {
+      Notifications.createChannelAndroidAsync('important', {
+        name: 'important',
+        sound: true,
+        priority: 'max',
+        vibrate: [0, 250, 250, 250],
+      });
+    }
+  };
+
+  
+
+  const _handleNotification = async notification => {
+    
+    Vibration.vibrate(); 
+    // console.log(notification);
+    setNotification(notification);
+    
+    
+  };
+
+  const registerApp = async () => {
+    await fetch('http://192.168.15.23:38000/topic', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json'},
+      body: JSON.stringify({ token: expoPushToken})
+    }); 
+  }
+
+  useEffect(() => {
+    registerForPushNotificationsAsync();
+  }, []);
+
+  
+  
   return <Provider store={store} ><Main /></Provider>
 }
 
