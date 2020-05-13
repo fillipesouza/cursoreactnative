@@ -1,10 +1,20 @@
+import * as SecureStore from 'expo-secure-store';
+
 import HealthInfo from "../models/HealthInfo";
 
 export const ADD_INFO = 'ADD_INFO';
+export const LOGOFF = 'LOGOFF';
 export const FETCH_HEALTH_INFO = 'FETCH_HEALTH_INFO';
 export const AUTHENTICATE = 'AUTHENTICATE';
 
 const url = 'https://fiec-virus-app.firebaseio.com/';
+
+export const logoff = () => {
+    return async dispatch => {
+        await SecureStore.deleteItemAsync('credentials');
+        dispatch({type: LOGOFF})
+    }
+}
 
 export const authenticateUser = (email, password, isSignUp) => {
 
@@ -28,22 +38,37 @@ export const authenticateUser = (email, password, isSignUp) => {
         const result = await response.json();
         if( result.error ){
             console.log(result.error);
+            throw error;
         }
         const { idToken, localId, expiresIn } = result;
-
+        const expiryTime = new Date();
+        expiryTime.setSeconds(expiryTime.getSeconds() + expiresIn);
+        const authInfo = JSON.stringify({ idToken, localId, expiryTime: expiryTime.toString() });
+        await SecureStore.setItemAsync('credentials', authInfo);
 
         dispatch({
             type: AUTHENTICATE,
             token: idToken,
             userId: localId,
-            expiresIn
+            expiryTime
         })
     }
 }
 
-export const addInfo = (healthInfo, userId) => {
+export const autoLogin = (token, userId, expiryTime) => {
+    return {
+        type: AUTHENTICATE,
+        token,
+        userId,
+        expiryTime
+    }
+}
+
+export const addInfo = (healthInfo, userId, latLng) => {
     return async dispatch => {
         if( !userId ) return {}
+        healthInfo.lat = latLng.lat;
+        healthInfo.lng = latLng.lng;
         const response = await fetch(url + 'health/' + userId + '.json', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
