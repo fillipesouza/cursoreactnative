@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
+import * as SecureStore from 'expo-secure-store';
 import { useSelector, useDispatch } from 'react-redux';
 import { StyleSheet, Text, View, ScrollView, Button } from 'react-native';
 import * as userActions from '../store/user_actions';
@@ -18,6 +19,24 @@ const LoginScreen = (props) => {
     const [isSignUp, setisSignUp] = useState(false);
 
     const dispatch = useDispatch();
+
+    const autoLogin = useCallback(
+        async () => {
+            let authInfo = await SecureStore.getItemAsync('credentials');
+            authInfo = JSON.parse(authInfo);
+            const { idToken, localId, expiryTime } = authInfo;
+            const willExpireTime= new Date(expiryTime);
+            if ( willExpireTime.getTime() >= new Date().getTime() ) {
+                dispatch(userActions.autoLogin(idToken, localId, willExpireTime));
+                props.navigation.navigate('Home');
+            }
+        },
+        [dispatch],
+    );
+
+    useEffect(() => {
+        autoLogin();
+    }, [autoLogin])
 
     const authenticateUser = async (values) => {
        

@@ -1,28 +1,19 @@
 import React, { useEffect, useCallback, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { StyleSheet, Text, View, Button, FlatList, TextInput, ScrollView, ActivityIndicator } from 'react-native'
+import { StyleSheet, Text, View, Button, FlatList, Image, ScrollView, ActivityIndicator } from 'react-native'
 import HealthInfo, { CoughType, RespirationLevel } from '../models/HealthInfo';
-import { TextField } from "react-native-material-textfield";
-import { Dropdown } from 'react-native-material-dropdown';
-import Intl from 'react-native-intl';
 
 import * as userActions from '../store/user_actions';
 import * as Yup from "yup";
 import { Formik } from "formik";
 
-
-
 import UserItem from '../components/UserItem';
 
-import { compose } from "recompose";
-import {
-    handleTextInput,
-    withNextInputAutoFocusInput,
-} from "react-native-formik";
-
-import { withNextInputAutoFocusForm } from "react-native-formik";
-
 import { MyForm, MyInput, MyDropDown } from '../components/FormComponents';
+
+import * as Location from 'expo-location';
+import * as ImagePicker from 'expo-image-picker'
+import * as Permissions from 'expo-permissions'
 
 const validationSchema = Yup.object().shape({
     temperature: Yup.number()
@@ -38,21 +29,83 @@ const validationSchema = Yup.object().shape({
 });
 
 const UserScreen = () => {
+    
+    const [pickedImage, setPickedImage] = useState(null);
+    const [location, setLocation] = useState(null);
+    const [errorMsg, setErrorMsg] = useState(null);
     const myHealthInfo = useSelector(state => state.users.healthInfo);
     const userId = useSelector(state => state.users.userId);
     const [isLoading, setisLoading] = useState(false);
-
     const dispatch = useDispatch();
+
+    const verifyPermissions = async () => {       
+        
+        const result = await Permissions.askAsync(Permissions.LOCATION, Permissions.CAMERA, Permissions.CAMERA_ROLL);
+        if (result.status !== 'granted') {
+            Alert.alert('Insufficient Permission', 'You need to grant camera permissions to use this app', [{ text: 'Okay' }])
+            return false;
+        }
+        return true;
+    }
+
+    const takeImageHandler = async () => {
+        const hasPermissions = await verifyPermissions();
+        if (!hasPermissions) {
+            return
+        }
+        const image = await ImagePicker.launchCameraAsync({
+            allowsEditing: true,
+            aspect: [16, 9],
+            quality: 0.5
+        });
+        console.log(image);
+        setPickedImage(image.uri);
+        console.log(pickedImage);
+        //props.onImageTaken(image.uri);
+    }
+
+
+    const initializeAll = useCallback(async () => {
+        await verifyPermissions();
+        let { status } = await Location.requestPermissionsAsync();
+        if (status !== 'granted') {
+            setErrorMsg('Permission to access location was denied');
+        }
+        try{
+        let location = await Location.getCurrentPositionAsync({
+            timeInterval: 5000
+        });
+        console.log(location);
+        setLocation(location);
+    }catch(err){
+        console.log(err);
+    }
+        
+        
+    }, [])
+
+    useEffect(() => {
+        initializeAll();
+    }, [initializeAll]);
+
 
     const addHealthInfo = (values) => {
 
         const { temperature, coughType, bodyAche, respirationLevel } = values;
 
-        const healthInfo = new HealthInfo( new Date(), temperature, coughType, bodyAche, respirationLevel);
-        dispatch(userActions.addInfo(healthInfo, userId));
+        console.log(location);
+
+        //let latLng = { lat: -23.33, lng: -42.12 };
+        let latLng = {
+            lat: location.coords.latitude,
+            lng: location.coords.longititude
+        }
+
+        const healthInfo = new HealthInfo(new Date(), temperature, coughType, bodyAche, respirationLevel);
+        dispatch(userActions.addInfo(healthInfo, userId, latLng));
     }
 
-    const retrieveHealthInfo = useCallback ( async ()  => {
+    const retrieveHealthInfo = useCallback(async () => {
         setisLoading(true);
         await dispatch(userActions.fetchHealthInfo(userId));
         setisLoading(false);
@@ -87,6 +140,10 @@ const UserScreen = () => {
 
     if (isLoading) {
         return <View style={styles.container}><ActivityIndicator size="large" color="#0000ff" /></View>
+    }
+
+    if (errorMsg ) {
+        return <View style={styles.container}><Text>Need Permission</Text></View>
     }
 
     return (
@@ -134,6 +191,9 @@ const UserScreen = () => {
                     );
                 }}
                 </Formik>
+                <Button title="Take Image"  onPress={takeImageHandler} />
+
+                {pickedImage && <Image style={styles.image} source={{uri: pickedImage}} /> }
 
             </View>
         </ScrollView>
@@ -147,5 +207,13 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center'
-    }
+    },
+    image: {
+        width: 200,
+        height: 200,
+        borderRadius: 5,
+        backgroundColor: '#ccc',
+        borderColor: '#eee',
+        borderWidth: 1
+    },
 })
