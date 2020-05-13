@@ -3,11 +3,21 @@ import 'react-native-gesture-handler';
 import React, {useState, useEffect} from 'react';
 
 import { createStore, combineReducers, applyMiddleware } from 'redux';
-import { Provider } from 'react-redux';
+import { Provider, useSelector } from 'react-redux';
 
 import userReducer from './store/user_reducers';
 import virusReducer from './store/virus_reducers';
 import thunkMiddleware from 'redux-thunk';
+
+import {init} from './helpers/db';
+
+init().then(() => {
+  console.log('Initialized Database');
+}).catch(err=> {
+  console.log('Initializing db failed')
+  console.log(err);
+})
+
 
 const rootReducer = combineReducers({
   virus : virusReducer,
@@ -28,6 +38,8 @@ import Main from './navigator/navigation';
 
 
 export default function App () {
+
+  
 
   const [expoPushToken, setToken] = useState('');
   const [notification, setNotification] = useState({});
