@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useSelector } from 'react-redux';
 
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -73,12 +74,11 @@ const MyTabs = props => {
 }
 
 const Main = () => {
-
+  const isLogged = useSelector(state => state.users.token);
   return (
     <NavigationContainer>
       <Drawer.Navigator initialRouteName="Login">
-        <Drawer.Screen name="Home" component={MyTabs} />
-        <Drawer.Screen name="Login" component={LoginScreen} />
+        {isLogged ? <Drawer.Screen name="Home" component={MyTabs} /> : <Drawer.Screen name="Login" component={LoginScreen} />}
       </Drawer.Navigator>
     </NavigationContainer>
   );
